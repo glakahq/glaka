@@ -224,3 +224,7 @@ __marimo__/
 .env
 *.db
 data/private/
+
+# Private notes (business plan, personal context) - never commit
+docs/private/
+CLAUDE.local.md
