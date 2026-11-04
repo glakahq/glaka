@@ -1,0 +1,20 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: glaka-db
+    environment:
+      POSTGRES_USER: glaka
+      POSTGRES_PASSWORD: glaka   # local dev only
+      POSTGRES_DB: glaka
+    ports:
+      - "5433:5432"   # host 5433 -> container 5432 (5432 is often taken locally)
+    volumes:
+      - glaka-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glaka -d glaka"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  glaka-pgdata:
