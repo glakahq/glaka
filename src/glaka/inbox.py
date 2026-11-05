@@ -14,6 +14,7 @@ from langgraph.types import Command
 from pydantic import BaseModel, model_validator
 from sqlalchemy import select
 
+from glaka.audit import record
 from glaka.delivery import deliver
 from glaka.gmail_mcp.schemas import Email
 from glaka.llm import LlmError
@@ -80,13 +81,17 @@ class Inbox:
             session.add(enquiry)
             session.flush()
             enquiry_id = enquiry.id
+            record(session, business_id, "enquiry.received", enquiry_id=enquiry_id,
+                   actor="customer", channel=enquiry.channel)
         try:
             self.workflow.invoke({"enquiry_id": str(enquiry_id)}, self._config(enquiry_id))
-        except Exception:
+        except Exception as exc:
             with self.session_scope() as session:
                 failed = session.get(Enquiry, enquiry_id)
                 if failed is not None:
                     failed.status = EnquiryStatus.FAILED
+                    record(session, business_id, "draft.failed", enquiry_id=enquiry_id,
+                           error=type(exc).__name__)
             raise
         return enquiry_id
 
@@ -107,7 +112,11 @@ class Inbox:
         return enquiry
 
     def review(
-        self, business_id: uuid.UUID, enquiry_id: uuid.UUID, decision: ReviewDecision
+        self,
+        business_id: uuid.UUID,
+        enquiry_id: uuid.UUID,
+        decision: ReviewDecision,
+        actor: str = "owner",
     ) -> None:
         """Resume the paused workflow with the owner's decision."""
         with self.session_scope() as session:
@@ -117,7 +126,7 @@ class Inbox:
             if enquiry.status != EnquiryStatus.PENDING_REVIEW:
                 raise NotAwaitingReview(enquiry.status)
         self.workflow.invoke(
-            Command(resume=decision.model_dump()), self._config(enquiry_id)
+            Command(resume={**decision.model_dump(), "actor": actor}), self._config(enquiry_id)
         )
 
     def poll_email(self, business_id: uuid.UUID) -> PollResult:
@@ -140,6 +149,9 @@ class Inbox:
                     ignored.status = EnquiryStatus.IGNORED
                     ignored.warnings = [f"not drafted: {email.automated_reason}"]
                     session.add(ignored)
+                    session.flush()
+                    record(session, business_id, "enquiry.ignored", enquiry_id=ignored.id,
+                           channel="email", reason=email.automated_reason)
                 result.ignored += 1
                 continue
             try:
@@ -150,7 +162,7 @@ class Inbox:
                 result.failed += 1
         return result
 
-    def retry_send(self, business_id: uuid.UUID, enquiry_id: uuid.UUID) -> None:
+    def retry_send(self, business_id: uuid.UUID, enquiry_id: uuid.UUID, actor: str = "owner") -> None:
         """Try again to send a reply that was decided but not delivered. Raises MailError."""
         with self.session_scope() as session:
             enquiry = session.get(Enquiry, enquiry_id)
@@ -159,5 +171,7 @@ class Inbox:
             if enquiry.status != EnquiryStatus.SEND_FAILED:
                 raise NotAwaitingReview(enquiry.status)
             deliver(enquiry, self.make_mail())
+            record(session, business_id, "reply.sent", enquiry_id=enquiry_id, actor=actor,
+                   channel=enquiry.channel, retry=True)
             edited = (enquiry.final_reply or "").strip() != (enquiry.draft_reply or "").strip()
             enquiry.status = EnquiryStatus.EDITED if edited else EnquiryStatus.APPROVED

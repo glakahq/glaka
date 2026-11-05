@@ -21,7 +21,7 @@ Python · FastAPI · LangGraph · Pydantic · Postgres + pgvector · MCP (Gmail,
 2. ✅ RAG answers with citations for one business
 3. ✅ Approval loop (API + LangGraph human review)
 4. ✅ Email in/out via MCP
-5. ✅ Guardrails + eval suite (audit trail next)
+5. ✅ Guardrails + eval suite, plus a hash-chained audit trail
 6. Multi-business support + dashboard
 7. Embeddable website chat widget
 

@@ -3,6 +3,7 @@
   uv run python -m glaka.cli ingest --business demo-bathrooms examples/demo-bathrooms/*.md
   uv run python -m glaka.cli search --business demo-bathrooms "How much is a shower install?"
   uv run python -m glaka.cli poll-email --business demo-bathrooms [--watch 60]
+  uv run python -m glaka.cli verify-audit --business demo-bathrooms
 """
 
 import argparse
@@ -51,7 +52,20 @@ def main() -> None:
     poll_cmd.add_argument("--business", required=True, help="business slug")
     poll_cmd.add_argument("--watch", type=int, metavar="SECONDS", help="keep polling every N seconds")
 
+    audit_cmd = sub.add_parser("verify-audit", help="check the audit trail hasn't been tampered with")
+    audit_cmd.add_argument("--business", required=True, help="business slug")
+
     args = parser.parse_args()
+    if args.command == "verify-audit":
+        from glaka.audit import verify_chain
+
+        with SessionLocal() as session:
+            check = verify_chain(session, _business(session, args.business).id)
+        if check.ok:
+            print(f"OK: {check.events} events, chain intact")
+        else:
+            sys.exit(f"TAMPERED at event {check.first_bad_id}: {check.reason}")
+        return
     if args.command == "poll-email":
         _poll_email(args.business, args.watch)
         return

@@ -22,6 +22,7 @@ from langgraph.types import interrupt
 from sqlalchemy.orm import Session
 
 from glaka.answer import answer_question
+from glaka.audit import record
 from glaka.delivery import deliver
 from glaka.embeddings import Embedder
 from glaka.llm import ChatModel
@@ -64,6 +65,11 @@ def build_workflow(
                 session, make_embedder(), make_llm(), business.id, business.name, question
             )
             auto_send = business.auto_send and answer.grounded
+            record(
+                session, business.id, "draft.created", enquiry_id=enquiry.id,
+                grounded=answer.grounded, warnings=answer.warnings,
+                sources=sorted({c.source for c in answer.citations}), auto_send=auto_send,
+            )
             enquiry.draft_reply = answer.answer
             enquiry.grounded = answer.grounded
             enquiry.citations = [c.model_dump(mode="json") for c in answer.citations]
@@ -88,21 +94,29 @@ def build_workflow(
         decision = state.get("decision")
         with session_scope() as session:
             enquiry = _load(session, state)
+            actor = (decision or {}).get("actor", "system")
             if decision is None:
                 enquiry.status = EnquiryStatus.AUTO_SENT
                 enquiry.final_reply = enquiry.draft_reply
+                event = "review.auto_approved"
             elif decision["action"] == "edit":
                 enquiry.status = EnquiryStatus.EDITED
                 enquiry.final_reply = decision["reply"]
+                event = "review.edited"
             else:
                 enquiry.status = EnquiryStatus.APPROVED
                 enquiry.final_reply = enquiry.draft_reply
+                event = "review.approved"
             enquiry.reviewed_at = datetime.now(UTC)
+            record(session, enquiry.business_id, event, enquiry_id=enquiry.id, actor=actor)
             try:
                 deliver(enquiry, make_mail())
+                if enquiry.sent_external_id:
+                    record(session, enquiry.business_id, "reply.sent", enquiry_id=enquiry.id, channel=enquiry.channel)
             except MailError as exc:
                 logger.error("Sending reply for enquiry %s failed: %s", enquiry.id, exc)
                 enquiry.status = EnquiryStatus.SEND_FAILED
+                record(session, enquiry.business_id, "reply.send_failed", enquiry_id=enquiry.id, error=str(exc)[:300])
         return {}
 
     def reject(state: EnquiryState) -> dict[str, Any]:
@@ -110,6 +124,10 @@ def build_workflow(
             enquiry = _load(session, state)
             enquiry.status = EnquiryStatus.REJECTED
             enquiry.reviewed_at = datetime.now(UTC)
+            record(
+                session, enquiry.business_id, "review.rejected", enquiry_id=enquiry.id,
+                actor=state["decision"].get("actor", "owner"),
+            )
         return {}
 
     graph = StateGraph(EnquiryState)

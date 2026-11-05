@@ -126,3 +126,28 @@ class Enquiry(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AuditEvent(Base):
+    """Append-only, hash-chained log of what happened (per business).
+
+    Each row's hash covers its content plus the previous row's hash, so editing or
+    deleting history breaks the chain (see glaka.audit.verify_chain). No message
+    text or contact details are stored here: only events, statuses and who acted.
+    """
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), index=True
+    )
+    enquiry_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("enquiries.id", ondelete="SET NULL"), index=True
+    )
+    event: Mapped[str] = mapped_column(String(64))
+    actor: Mapped[str] = mapped_column(String(200))  # "system", "customer", "user:<id>"
+    details: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    prev_hash: Mapped[str] = mapped_column(String(64))
+    hash: Mapped[str] = mapped_column(String(64), unique=True)

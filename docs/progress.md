@@ -61,6 +61,15 @@ Things deliberately left for later are in [backlog.md](backlog.md).
 - Promptfoo evals (`evals/`): 14 real-model cases (grounded answers, no invention, attacks).
   The first run found a real gap (fake `SYSTEM:` messages weren't flagged), now fixed.
 
+## Step 5b: audit trail
+- `audit_events`: append-only, hash-chained per business (each hash covers the event plus
+  the previous hash). Written in the same transaction as the change it describes.
+- Events: `enquiry.received`, `enquiry.ignored`, `draft.created`, `draft.failed`,
+  `review.approved|edited|rejected|auto_approved`, `reply.sent`, `reply.send_failed`.
+- No message text or contact details are stored; details pass through PII redaction.
+- `python -m glaka.cli verify-audit --business <slug>` detects edited, deleted or
+  reordered events. Each enquiry card in the UI shows its activity.
+
 ## Running it
 
 ```

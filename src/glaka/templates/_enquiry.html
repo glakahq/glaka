@@ -57,4 +57,16 @@
       {% endfor %}
     </details>
   {% endif %}
+
+  {% set events = activity.get(e.id, []) %}
+  {% if events %}
+    <details><summary>Activity ({{ events|length }})</summary>
+      {% for ev in events %}
+        <div class="muted" style="margin-top:4px">
+          {{ ev.created_at.strftime("%d %b %H:%M:%S") }} · <strong>{{ ev.event }}</strong> · {{ ev.actor }}
+          {% if ev.details %}<span>· {{ ev.details | tojson }}</span>{% endif %}
+        </div>
+      {% endfor %}
+    </details>
+  {% endif %}
 </div>

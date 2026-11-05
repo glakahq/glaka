@@ -21,7 +21,7 @@ from glaka.deps import get_business, get_inbox, get_session
 from glaka.inbox import EnquiryNotFound, Inbox, NotAwaitingReview, ReviewDecision
 from glaka.llm import LlmError
 from glaka.mail import MailError
-from glaka.models import Business, Chunk, Document, Enquiry, EnquiryStatus
+from glaka.models import AuditEvent, Business, Chunk, Document, Enquiry, EnquiryStatus
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,12 @@ def inbox_page(
         .order_by(Document.source)
     ).all()
     all_businesses = session.scalars(select(Business).order_by(Business.name)).all()
+    activity: dict = {}
+    for event in session.scalars(
+        select(AuditEvent).where(AuditEvent.business_id == business.id, AuditEvent.enquiry_id.is_not(None))
+        .order_by(AuditEvent.id)
+    ):
+        activity.setdefault(event.enquiry_id, []).append(event)
     settings = get_settings()
     notice = None
     if new is not None:
@@ -99,6 +105,7 @@ def inbox_page(
             "pending": [e for e in enquiries if e.status == EnquiryStatus.PENDING_REVIEW],
             "history": [e for e in enquiries if e.status != EnquiryStatus.PENDING_REVIEW],
             "documents": documents,
+            "activity": activity,
             "error": ERRORS.get(error or ""),
             "notice": notice,
             "gmail_ready": settings.gmail_token_file.exists(),
