@@ -16,14 +16,16 @@ Python · FastAPI · LangGraph · Pydantic · Postgres + pgvector · MCP (Gmail,
 
 ## Roadmap
 
-0. Project setup: uv, FastAPI `/health`, pytest  ← **start here**
-1. Postgres + pgvector (Docker), a `businesses` table, first tenant seeded
-2. RAG answers with citations for one business
-3. Approval loop (API + LangGraph human review)
-4. Email in/out via MCP
-5. Guardrails + eval suite
+0. ✅ Project setup: uv, FastAPI `/health`, pytest
+1. ✅ Postgres + pgvector (Docker), a `businesses` table, first tenant seeded
+2. ✅ RAG answers with citations for one business
+3. ✅ Approval loop (API + LangGraph human review)
+4. ✅ Email in/out via MCP
+5. ✅ Guardrails + eval suite (audit trail next)
 6. Multi-business support + dashboard
 7. Embeddable website chat widget
+
+What's built: `docs/progress.md`. Deferred work: `docs/backlog.md` (add to it when cutting a corner).
 
 ## Public repo hygiene
 

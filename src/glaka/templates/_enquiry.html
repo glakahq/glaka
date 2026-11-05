@@ -3,7 +3,7 @@
   "pending_review": ("Needs review", "warn"), "approved": ("Approved", "ok"),
   "edited": ("Edited and sent", "ok"), "auto_sent": ("Auto-sent", "info"),
   "rejected": ("Rejected", "bad"), "failed": ("Drafting failed", "bad"), "drafting": ("Drafting", "info"),
-  "send_failed": ("Not sent", "bad") } %}
+  "send_failed": ("Not sent", "bad"), "ignored": ("Ignored (automated)", "info") } %}
 {% set label, tone = labels.get(e.status, (e.status, "info")) %}
 <div class="card" id="e-{{ e.id }}">
   <div class="spread">

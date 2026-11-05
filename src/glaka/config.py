@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     # Embeddings: local Ollama (small model, runs fine on a laptop).
     ollama_url: str = "http://localhost:11434"
     embedding_model: str = "nomic-embed-text"
+    # Chunks further than this (cosine distance) count as "not relevant". Measured for
+    # nomic-embed-text on the demo data: on-topic <= 0.354, off-topic >= 0.396.
+    # Re-measure if you change the embedding model.
+    retrieval_max_distance: float = 0.38
 
     # Chat model: OpenRouter (hosted) by default, or Ollama (local).
     llm_provider: Literal["openrouter", "ollama"] = "openrouter"

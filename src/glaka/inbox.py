@@ -47,6 +47,7 @@ class ReviewDecision(BaseModel):
 class PollResult:
     new: int = 0
     already_seen: int = 0
+    ignored: int = 0  # automated emails, stored for visibility but not drafted
     failed: int = 0  # stored, but drafting failed (e.g. AI provider down)
 
 
@@ -75,16 +76,7 @@ class Inbox:
     ) -> uuid.UUID:
         """Store the enquiry, then run the workflow until it pauses or finishes."""
         with self.session_scope() as session:
-            enquiry = Enquiry(business_id=business_id, message=message, customer_name=customer_name)
-            if email is not None:
-                enquiry.channel = "email"
-                enquiry.customer_name = email.from_name or None
-                enquiry.customer_email = email.from_address
-                enquiry.subject = email.subject
-                enquiry.external_id = email.id
-                enquiry.external_thread_id = email.thread_id
-                enquiry.message_id_header = email.message_id_header
-                enquiry.references_header = email.references
+            enquiry = self._new_enquiry(business_id, message, customer_name, email)
             session.add(enquiry)
             session.flush()
             enquiry_id = enquiry.id
@@ -97,6 +89,22 @@ class Inbox:
                     failed.status = EnquiryStatus.FAILED
             raise
         return enquiry_id
+
+    @staticmethod
+    def _new_enquiry(
+        business_id: uuid.UUID, message: str, customer_name: str | None, email: Email | None
+    ) -> Enquiry:
+        enquiry = Enquiry(business_id=business_id, message=message, customer_name=customer_name)
+        if email is not None:
+            enquiry.channel = "email"
+            enquiry.customer_name = email.from_name or None
+            enquiry.customer_email = email.from_address
+            enquiry.subject = email.subject
+            enquiry.external_id = email.id
+            enquiry.external_thread_id = email.thread_id
+            enquiry.message_id_header = email.message_id_header
+            enquiry.references_header = email.references
+        return enquiry
 
     def review(
         self, business_id: uuid.UUID, enquiry_id: uuid.UUID, decision: ReviewDecision
@@ -124,6 +132,15 @@ class Inbox:
                 )
             if seen:
                 result.already_seen += 1
+                continue
+            if email.automated_reason:
+                # Input guardrail: don't draft replies to newsletters or auto-replies.
+                with self.session_scope() as session:
+                    ignored = self._new_enquiry(business_id, email.body, None, email)
+                    ignored.status = EnquiryStatus.IGNORED
+                    ignored.warnings = [f"not drafted: {email.automated_reason}"]
+                    session.add(ignored)
+                result.ignored += 1
                 continue
             try:
                 self.submit(business_id, email.body or "(empty message)", email=email)

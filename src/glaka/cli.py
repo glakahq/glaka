@@ -32,6 +32,9 @@ def _title(path: Path, text: str) -> str:
 
 
 def main() -> None:
+    from glaka.logs import setup_logging
+
+    setup_logging()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
 

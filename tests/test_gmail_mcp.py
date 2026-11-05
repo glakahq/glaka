@@ -79,3 +79,13 @@ def test_build_reply_rejects_header_injection() -> None:
 def test_build_reply_allows_one_recipient_only() -> None:
     with pytest.raises(ValueError):
         build_reply("a@example.com, b@example.com", "Hi", "body", "", "")
+
+
+def test_newsletters_are_marked_automated(api) -> None:
+    newsletter = gmail_message(
+        "m9", "t9", "Shop <news@shop.example>", "Deals", "50% off", [LABEL],
+        [("List-Unsubscribe", "<mailto:unsub@shop.example>")],
+    )
+
+    assert parse_message(newsletter).automated_reason == "mailing list or newsletter"
+    assert parse_message(CUSTOMER).automated_reason is None

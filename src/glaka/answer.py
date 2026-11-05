@@ -6,12 +6,12 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
+from glaka.config import get_settings
 from glaka.embeddings import Embedder
+from glaka.guardrails import injection_warnings, leaks_internals, unsupported_contacts
 from glaka.llm import ChatModel
 from glaka.rag import SearchHit, search
 
-# Chunks further than this (cosine distance) are treated as not relevant.
-MAX_DISTANCE = 0.5
 TOP_K = 4
 
 FALLBACK = (
@@ -86,13 +86,19 @@ def answer_question(
     business_name: str,
     question: str,
 ) -> Answer:
+    # 0. Input guardrail: note injection attempts (the prompt also tells the AI to ignore them).
+    input_warnings = injection_warnings(question)
+
     # 1. Retrieve first: no relevant data means no LLM call and no made-up answer.
+    max_distance = get_settings().retrieval_max_distance
     hits = [
         h for h in search(session, embedder, business_id, question, TOP_K)
-        if h.distance <= MAX_DISTANCE
+        if h.distance <= max_distance
     ]
     if not hits:
-        return Answer(answer=FALLBACK, grounded=False, citations=[], warnings=["no relevant sources"])
+        return Answer(
+            answer=FALLBACK, grounded=False, citations=[], warnings=[*input_warnings, "no relevant sources"]
+        )
 
     # 2. Generate, constrained to the retrieved sources.
     reply = llm.generate(
@@ -101,9 +107,14 @@ def answer_question(
         schema=LlmAnswer,
     )
     if not reply.can_answer:
-        return Answer(answer=FALLBACK, grounded=False, citations=[], warnings=["model could not answer from sources"])
+        return Answer(
+            answer=FALLBACK,
+            grounded=False,
+            citations=[],
+            warnings=[*input_warnings, "model could not answer from sources"],
+        )
 
-    # 3. Check: keep only citations that point at real sources.
+    # 3. Output guardrails. First, keep only citations that point at real sources.
     numbers = sorted({n for n in reply.cited_sources if 1 <= n <= len(hits)})
     cited = [hits[n - 1] for n in numbers]
     citations = [
@@ -111,12 +122,19 @@ def answer_question(
         for n, h in zip(numbers, cited)
     ]
 
-    warnings: list[str] = []
+    warnings: list[str] = list(input_warnings)
     if not citations:
         warnings.append("answer cites no sources")
     bad_prices = unsupported_prices(reply.answer, cited)
     if bad_prices:
         warnings.append(f"prices not found in cited sources: {', '.join(bad_prices)}")
+    # Links/emails/phones must come from the business's own data (checked against all
+    # retrieved sources, not just cited ones: contact details are often in another chunk).
+    contacts = unsupported_contacts(reply.answer, [h.content for h in hits])
+    if contacts:
+        warnings.append(f"contact details not in the business's data: {', '.join(contacts)}")
+    if leaks_internals(reply.answer):
+        warnings.append("reply mentions internal source numbers")
 
     return Answer(
         answer=reply.answer,

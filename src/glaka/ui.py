@@ -70,6 +70,7 @@ def inbox_page(
     new: int | None = None,
     seen: int | None = None,
     failed: int | None = None,
+    ignored: int | None = None,
 ):
     enquiries = session.scalars(
         select(Enquiry).where(Enquiry.business_id == business.id).order_by(Enquiry.created_at.desc())
@@ -86,6 +87,8 @@ def inbox_page(
     notice = None
     if new is not None:
         notice = f"Checked email: {new} new, {seen or 0} already in the inbox"
+        if ignored:
+            notice += f", {ignored} automated (not drafted)"
         notice += f", {failed} couldn't be drafted (AI unavailable)." if failed else "."
     return templates.TemplateResponse(
         request,
@@ -165,7 +168,9 @@ def poll_email(
     except MailError as exc:
         logger.error("Email poll failed: %s", exc)
         return _back(slug, "mail")
-    return _back(slug, new=result.new, seen=result.already_seen, failed=result.failed)
+    return _back(
+        slug, new=result.new, seen=result.already_seen, failed=result.failed, ignored=result.ignored
+    )
 
 
 @router.post("/ui/{slug}/enquiries/{enquiry_id}/retry-send")

@@ -7,15 +7,16 @@ from fastapi.responses import JSONResponse
 
 from glaka import api, ui
 from glaka.llm import LlmError
+from glaka.logs import setup_logging
 from glaka.runtime import open_inbox
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Startup/shutdown (like @PostConstruct/@PreDestroy on the application)."""
+    setup_logging()  # after uvicorn has set up its handlers, so they get redaction too
     with open_inbox() as inbox:
         app.state.inbox = inbox
         yield

@@ -231,3 +231,6 @@ CLAUDE.local.md
 
 # OAuth client and tokens (Gmail) - never commit
 .secrets/
+
+# Node (evals/)
+node_modules/

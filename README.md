@@ -4,7 +4,8 @@
 
 *Glaka* (γλάκα) is Cretan dialect for **"run!"**. That's the idea: when a customer gets in touch, Glaka runs to answer, so no enquiry waits and no job is lost to a late reply. The business owner always stays in control.
 
-> **Status: early development.** Nothing here is ready to use yet. Follow along or star the repo to watch it grow.
+> **Status: early development.** Usable for local testing; not production-ready yet.
+> See [what's built](docs/progress.md) and [what's left](docs/backlog.md).
 
 ## What it will do
 
@@ -23,18 +24,22 @@ A tradesperson, café or shop gets an enquiry by email, website chat or (later) 
 - **Multi-tenant from day one.** Each business's data, settings and connections are kept separate.
 - **Model-agnostic.** Local models via Ollama for development, swappable hosted models in production.
 
-## Planned stack
+## Stack
 
 Python · FastAPI · LangGraph · Pydantic · Postgres + pgvector · MCP integrations (Gmail, Calendar) · Ollama
 
 ## Roadmap
 
-1. RAG answers from one business's information, with citations
-2. Approval loop: API + LangGraph human review
-3. Email in and out via MCP
-4. Guardrails + evaluation suite
+1. ✅ RAG answers from one business's information, with citations
+2. ✅ Approval loop: API + LangGraph human review
+3. ✅ Email in and out via MCP
+4. ✅ Guardrails + evaluation suite
 5. Multi-business support + dashboard
 6. Embeddable website chat widget
+
+## Try it locally
+
+See [docs/progress.md](docs/progress.md#running-it). Connecting Gmail: [docs/gmail-setup.md](docs/gmail-setup.md).
 
 ## Hosted version
 

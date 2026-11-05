@@ -78,3 +78,16 @@ def test_web_enquiries_send_no_email(session, shop, inbox, mail) -> None:
     inbox.review(shop.id, enquiry_id, ReviewDecision(action="approve"))
 
     assert mail.sent == []
+
+
+def test_automated_emails_are_stored_but_not_drafted(session, shop, inbox, mail, llm) -> None:
+    mail.emails = [EMAIL.model_copy(update={"id": "news1", "automated_reason": "mailing list or newsletter"})]
+
+    result = inbox.poll_email(shop.id)
+
+    assert (result.new, result.ignored) == (0, 1)
+    [enquiry] = _enquiries(session, shop)
+    assert enquiry.status == "ignored"
+    assert enquiry.warnings == ["not drafted: mailing list or newsletter"]
+    assert llm.calls == []  # no AI call, so nothing leaves the building
+    assert inbox.poll_email(shop.id).already_seen == 1

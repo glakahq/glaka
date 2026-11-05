@@ -88,6 +88,7 @@ class EnquiryStatus:
     REJECTED = "rejected"  # owner decided not to reply with it
     FAILED = "failed"  # drafting failed (e.g. AI provider down)
     SEND_FAILED = "send_failed"  # decided, but the email could not be sent
+    IGNORED = "ignored"  # automated email (newsletter, auto-reply): no draft, nothing sent
 
 
 class Enquiry(Base):

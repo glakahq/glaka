@@ -11,6 +11,7 @@ from email.utils import getaddresses, parseaddr
 from typing import Any, Protocol
 
 from glaka.gmail_mcp.schemas import Email
+from glaka.guardrails import automated_email_reason
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -112,6 +113,9 @@ def parse_message(message: dict[str, Any]) -> Email:
         body=body.strip(),
         message_id_header=_header(payload, "Message-ID"),
         references=_header(payload, "References"),
+        automated_reason=automated_email_reason(
+            {h["name"].lower(): h["value"] for h in payload.get("headers", [])}, address
+        ),
     )
 
 

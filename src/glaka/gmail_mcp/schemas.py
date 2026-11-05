@@ -13,6 +13,7 @@ class Email(BaseModel):
     body: str
     message_id_header: str  # RFC 5322 Message-ID, used for In-Reply-To
     references: str
+    automated_reason: str | None = None  # set if it looks machine-sent (newsletter, auto-reply...)
 
 
 class SentEmail(BaseModel):
