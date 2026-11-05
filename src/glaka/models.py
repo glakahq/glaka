@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, MetaData, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -12,7 +12,14 @@ EMBEDDING_DIM = 768
 
 
 class Base(DeclarativeBase):
-    pass
+    # Predictable constraint names, so migrations can always drop what they create.
+    metadata = MetaData(naming_convention={
+        "ix": "ix_%(column_0_label)s",
+        "uq": "uq_%(table_name)s_%(column_0_name)s",
+        "ck": "ck_%(table_name)s_%(constraint_name)s",
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "pk": "pk_%(table_name)s",
+    })
 
 
 class Business(Base):
@@ -29,6 +36,12 @@ class Business(Base):
     reply_instructions: Mapped[str | None] = mapped_column(Text)
     # Gmail label that routes mail to this business (set by a Gmail filter).
     email_label: Mapped[str] = mapped_column(String(100), server_default="glaka")
+    # Website chat widget. The key is public (it's in the page source); it identifies the
+    # business and can be rotated. Allowed origins: one per line, empty = any website.
+    widget_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    widget_key: Mapped[str | None] = mapped_column(String(64), unique=True)
+    widget_greeting: Mapped[str | None] = mapped_column(String(300))
+    widget_allowed_origins: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -109,7 +122,7 @@ class Enquiry(Base):
     business_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("businesses.id", ondelete="CASCADE"), index=True
     )
-    channel: Mapped[str] = mapped_column(String(16), server_default="web")  # "web" | "email"
+    channel: Mapped[str] = mapped_column(String(16), server_default="web")  # "web" | "email" | "chat"
     customer_name: Mapped[str | None] = mapped_column(String(200))
     customer_email: Mapped[str | None] = mapped_column(String(320))
     subject: Mapped[str | None] = mapped_column(String(500))
@@ -120,6 +133,9 @@ class Enquiry(Base):
     message_id_header: Mapped[str | None] = mapped_column(String(500))
     references_header: Mapped[str | None] = mapped_column(Text)
     sent_external_id: Mapped[str | None] = mapped_column(String(200))
+    # Chat widget: SHA-256 of the visitor's private conversation token (the token itself
+    # lives only in their browser), so only they can read the replies.
+    conversation_hash: Mapped[str | None] = mapped_column(String(64), index=True)
     status: Mapped[str] = mapped_column(String(32), default=EnquiryStatus.DRAFTING, index=True)
     draft_reply: Mapped[str | None] = mapped_column(Text)
     grounded: Mapped[bool | None] = mapped_column(Boolean)

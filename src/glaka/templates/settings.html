@@ -37,6 +37,43 @@
     {% endif %}
   </div>
 
+  <h2>Website chat widget</h2>
+  <form class="card" method="post" action="/ui/{{ business.slug }}/widget" style="max-width:720px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <label class="check"><input type="checkbox" name="widget_enabled" {% if business.widget_enabled %}checked{% endif %}>
+      Show a chat box on the business's website</label>
+    <p class="muted">Chat messages arrive in the inbox like any other enquiry. Visitors see a reply
+      once you approve it (or straight away for grounded drafts if auto-send is on).</p>
+
+    <label for="widget_greeting">Greeting</label>
+    <input id="widget_greeting" name="widget_greeting" maxlength="300"
+      value="{{ business.widget_greeting or '' }}" placeholder="{{ default_greeting }}">
+
+    <label for="widget_allowed_origins">Websites allowed to show it (one per line)</label>
+    <textarea id="widget_allowed_origins" name="widget_allowed_origins" maxlength="4000"
+      placeholder="https://www.example.com">{{ business.widget_allowed_origins or "" }}</textarea>
+    {% if business.widget_enabled and not origins %}
+      <p><span class="badge warn">any website</span> <span class="muted">Add the business's own site so
+        nobody else can embed this chat and use up its message allowance.</span></p>
+    {% endif %}
+    <div class="row"><button>Save widget settings</button></div>
+  </form>
+
+  {% if business.widget_enabled and business.widget_key %}
+  <div class="card" style="max-width:720px">
+    <label for="snippet">Paste this just before <code>&lt;/body&gt;</code> on the website</label>
+    <textarea id="snippet" readonly rows="2" style="min-height:auto;font-family:ui-monospace,monospace;font-size:12px" onclick="this.select()">&lt;script src="{{ widget_base }}/widget.js" data-glaka-key="{{ business.widget_key }}" async&gt;&lt;/script&gt;</textarea>
+    <div class="row">
+      <a class="button" href="/ui/{{ business.slug }}/widget/preview" target="_blank" rel="noopener">Try it</a>
+      <form method="post" action="/ui/{{ business.slug }}/widget/rotate" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+        <button class="secondary">New key</button>
+      </form>
+      <span class="muted">A new key stops the old snippet working.</span>
+    </div>
+  </div>
+  {% endif %}
+
   <h2>People with access</h2>
   <div class="card" style="max-width:720px">
     <table>

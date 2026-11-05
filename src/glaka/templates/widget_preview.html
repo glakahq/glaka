@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat preview · {{ business.name }}</title>
+  <style>
+    body { margin: 0; font: 16px/1.5 system-ui, sans-serif; background: #f6f6f3; color: #1d1d1b; }
+    main { max-width: 640px; margin: 0 auto; padding: 48px 16px; }
+    .note { background: #fff; border: 1px solid #e2e1dc; border-radius: 12px; padding: 16px; }
+    @media (prefers-color-scheme: dark) { body { background: #1b1b19; color: #ecebe6; }
+      .note { background: #262624; border-color: #3a3a37; } a { color: #9fd3c0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{{ business.name }}</h1>
+    <div class="note">
+      <p>This is a stand-in for the business's website. The chat button is in the bottom-right corner.</p>
+      <p>Messages you send here are real enquiries: they appear in the
+        <a href="/ui/{{ business.slug }}">inbox</a> for review, like a visitor's would.</p>
+    </div>
+  </main>
+  <script src="/widget.js" data-glaka-key="{{ business.widget_key }}" async></script>
+</body>
+</html>

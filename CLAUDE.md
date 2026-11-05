@@ -23,7 +23,7 @@ Python · FastAPI · LangGraph · Pydantic · Postgres + pgvector · MCP (Gmail,
 4. ✅ Email in/out via MCP
 5. ✅ Guardrails + eval suite, plus a hash-chained audit trail
 6. ✅ Multi-business support + dashboard
-7. Embeddable website chat widget
+7. ✅ Embeddable website chat widget
 
 What's built: `docs/progress.md`. Deferred work: `docs/backlog.md` (add to it when cutting a corner).
 

@@ -8,7 +8,8 @@
 <div class="card" id="e-{{ e.id }}">
   <div class="spread">
     <div><strong>{{ e.customer_name or e.customer_email or "Customer" }}</strong>
-      {% if e.channel == "email" %}<span class="muted">&lt;{{ e.customer_email }}&gt;</span>{% endif %}
+      {% if e.customer_email and e.customer_name %}<span class="muted">&lt;{{ e.customer_email }}&gt;</span>{% endif %}
+      {% if e.channel == "chat" %}<span class="badge info">website chat</span>{% endif %}
       <span class="muted">· {{ e.created_at.strftime("%d %b %H:%M") }}</span></div>
     <div>
       {% if e.grounded is not none %}
@@ -29,7 +30,7 @@
       <label for="reply-{{ e.id }}">Draft reply (edit it if needed)</label>
       <textarea id="reply-{{ e.id }}" name="reply">{{ e.draft_reply or "" }}</textarea>
       <div class="row">
-        <button name="action" value="send">{{ "Approve and send email" if e.channel == "email" else "Approve" }}</button>
+        <button name="action" value="send">{{ {"email": "Approve and send email", "chat": "Approve (shows in the chat)"}.get(e.channel, "Approve") }}</button>
         <button name="action" value="reject" class="secondary">Reject</button>
         <span class="muted">If you change the text, it's saved as an edit.</span>
       </div>

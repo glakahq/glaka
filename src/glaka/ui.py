@@ -37,6 +37,7 @@ from glaka.llm import LlmError
 from glaka.mail import MailError
 from glaka.models import AuditEvent, Business, Chunk, Document, Enquiry, EnquiryStatus, Membership, User
 from glaka.rag import ingest_document
+from glaka.widget import DEFAULT_GREETING, allowed_origins, new_widget_key
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ Csrf = Depends(verify_csrf)
 MAX_UPLOAD_BYTES = 1_000_000
 SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
 LABEL = re.compile(r"^[\w ./-]{1,100}$")
+ORIGIN = re.compile(r"^https?://[a-z0-9.-]+(?::\d{1,5})?$")
 
 ERRORS = {
     "ai": "The AI provider didn't respond, so no draft was written. Try again in a minute.",
@@ -67,12 +69,15 @@ ERRORS = {
     "label": "The Gmail label can contain letters, digits, spaces and . / - _ only.",
     "login": "Wrong email or password.",
     "throttled": "Too many attempts. Try again in 15 minutes.",
+    "origin": "Each website must look like https://www.example.com (no paths), one per line.",
 }
 NOTICES = {
     "saved": "Settings saved.",
     "added": "Added to the knowledge base.",
     "removed": "Removed from the knowledge base.",
     "created": "Business created. Add its documents in Knowledge, then connect email.",
+    "widget": "Chat widget settings saved.",
+    "rotated": "New widget key created. Update the snippet on your website.",
 }
 
 
@@ -398,7 +403,12 @@ def settings_page(request: Request, user: CurrentUser, business: CurrentBusiness
         .where(Membership.business_id == business.id)
         .order_by(User.name)
     ).all()
-    return _page(request, "settings.html", user, session, business=business, tab="settings", members=members)
+    base = str(request.base_url).rstrip("/")
+    return _page(
+        request, "settings.html", user, session,
+        business=business, tab="settings", members=members,
+        widget_base=base, default_greeting=DEFAULT_GREETING, origins=allowed_origins(business),
+    )
 
 
 @router.post("/ui/{slug}/settings", dependencies=[Csrf])
@@ -426,6 +436,52 @@ def save_settings(
     if changed:
         record(session, business.id, "settings.updated", actor=_actor(user), fields=changed)
     return _back(f"/ui/{slug}/settings", notice="saved")
+
+
+# --- chat widget ------------------------------------------------------------------------
+
+
+@router.post("/ui/{slug}/widget", dependencies=[Csrf])
+def save_widget(
+    slug: str,
+    user: CurrentUser,
+    business: CurrentBusiness,
+    session: DbSession,
+    widget_enabled: Annotated[str | None, Form()] = None,
+    widget_greeting: Annotated[str, Form(max_length=300)] = "",
+    widget_allowed_origins: Annotated[str, Form(max_length=4000)] = "",
+) -> RedirectResponse:
+    origins = [o.strip().rstrip("/").lower() for o in widget_allowed_origins.splitlines() if o.strip()]
+    if any(not ORIGIN.match(o) for o in origins):
+        return _back(f"/ui/{slug}/settings", error="origin")
+    new = {
+        "widget_enabled": widget_enabled == "on",
+        "widget_greeting": widget_greeting.strip() or None,
+        "widget_allowed_origins": "\n".join(origins) or None,
+    }
+    changed = sorted(k for k, v in new.items() if getattr(business, k) != v)
+    for key, value in new.items():
+        setattr(business, key, value)
+    if business.widget_enabled and not business.widget_key:
+        business.widget_key = new_widget_key()
+        changed.append("widget_key")
+    if changed:
+        record(session, business.id, "widget.updated", actor=_actor(user), fields=changed)
+    return _back(f"/ui/{slug}/settings", notice="widget")
+
+
+@router.post("/ui/{slug}/widget/rotate", dependencies=[Csrf])
+def rotate_widget_key(slug: str, user: CurrentUser, business: CurrentBusiness, session: DbSession) -> RedirectResponse:
+    business.widget_key = new_widget_key()
+    record(session, business.id, "widget.key_rotated", actor=_actor(user))
+    return _back(f"/ui/{slug}/settings", notice="rotated")
+
+
+@router.get("/ui/{slug}/widget/preview", response_class=HTMLResponse)
+def widget_preview(request: Request, user: CurrentUser, business: CurrentBusiness):
+    if not business.widget_enabled or not business.widget_key:
+        return _back(f"/ui/{business.slug}/settings")
+    return templates.TemplateResponse(request, "widget_preview.html", {"business": business})
 
 
 # --- activity (audit trail) -------------------------------------------------------------

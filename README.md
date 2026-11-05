@@ -35,7 +35,7 @@ Python · FastAPI · LangGraph · Pydantic · Postgres + pgvector · MCP integra
 3. ✅ Email in and out via MCP
 4. ✅ Guardrails + evaluation suite
 5. ✅ Multi-business support + dashboard
-6. Embeddable website chat widget
+6. ✅ Embeddable website chat widget
 
 ## Try it locally
 

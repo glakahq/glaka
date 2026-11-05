@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from glaka import api, ui
+from glaka import api, ui, widget
 from glaka.auth import NotAuthenticated
 from glaka.config import get_settings
 from glaka.llm import LlmError
@@ -45,6 +45,7 @@ app.add_middleware(
 )
 app.include_router(api.router)
 app.include_router(ui.router)
+app.include_router(widget.router)
 
 
 @app.exception_handler(NotAuthenticated)

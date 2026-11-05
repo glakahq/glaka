@@ -32,6 +32,17 @@ Tick items off (or delete them) as they're done.
 - [ ] **Keep one MCP session open** instead of starting the server process per call (~1s each).
 - [ ] **Other providers**: Outlook/Microsoft 365, plain IMAP/SMTP.
 
+## Chat widget
+- [ ] **Chat replies by email too**: if the visitor left an email and closed the page, the
+  approved reply only shows in the chat. Send it by email as well.
+- [ ] **Rate limits are in memory**, per process (like login limiting). Move to Postgres/Redis.
+- [ ] **Polling every 15s** while a reply is pending; use Server-Sent Events instead.
+- [ ] **Follow-ups don't see the earlier conversation** (each message is drafted alone).
+- [ ] **Notify the owner** of new chats (email/push) so visitors aren't left waiting.
+- [ ] **Behind a proxy**, visitor IPs need `--proxy-headers` / `X-Forwarded-For` handling,
+  or every visitor shares one rate limit.
+- [ ] **Widget colours/position** set from the dashboard (today: `data-glaka-color` only).
+
 ## Answer quality
 - [ ] **Hybrid retrieval** (BM25 keyword + vector) and reranking.
 - [ ] **Re-measure the retrieval threshold** per embedding model, and ideally per business.

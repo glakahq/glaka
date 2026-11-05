@@ -85,6 +85,17 @@ Things deliberately left for later are in [backlog.md](backlog.md).
 - **Per-business reply style** (`reply_instructions`) goes into the prompt after the safety
   rules, so it can change tone but not the rules.
 
+## Step 7: website chat widget
+- One script tag on the business's site: `<script src="…/widget.js" data-glaka-key="wk_…" async>`.
+  Vanilla JS in a Shadow DOM (the site's CSS can't break it), text only (no HTML injection).
+- Chat messages become normal enquiries (channel `chat`): same RAG, guardrails, approval
+  and audit. The visitor sees the reply once it's approved, or instantly with auto-send.
+- **Public, so protected differently**: a rotatable widget key, a list of websites allowed
+  to embed it (CORS + Origin check), rate limits per visitor and per business, and a
+  private conversation token held only by the visitor's browser (we store its SHA-256).
+- Dashboard → Settings: enable, greeting, allowed websites, copy the snippet, new key,
+  and a "Try it" preview page.
+
 ## Running it
 
 ```

@@ -75,10 +75,18 @@ class Inbox:
         message: str,
         customer_name: str | None = None,
         email: Email | None = None,
+        *,
+        channel: str = "web",
+        customer_email: str | None = None,
+        conversation_hash: str | None = None,
     ) -> uuid.UUID:
         """Store the enquiry, then run the workflow until it pauses or finishes."""
         with self.session_scope() as session:
             enquiry = self._new_enquiry(business_id, message, customer_name, email)
+            if email is None:
+                enquiry.channel = channel
+                enquiry.customer_email = customer_email
+                enquiry.conversation_hash = conversation_hash
             session.add(enquiry)
             session.flush()
             enquiry_id = enquiry.id
