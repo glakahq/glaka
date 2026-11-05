@@ -2,11 +2,13 @@
 {% set labels = {
   "pending_review": ("Needs review", "warn"), "approved": ("Approved", "ok"),
   "edited": ("Edited and sent", "ok"), "auto_sent": ("Auto-sent", "info"),
-  "rejected": ("Rejected", "bad"), "failed": ("Drafting failed", "bad"), "drafting": ("Drafting", "info") } %}
+  "rejected": ("Rejected", "bad"), "failed": ("Drafting failed", "bad"), "drafting": ("Drafting", "info"),
+  "send_failed": ("Not sent", "bad") } %}
 {% set label, tone = labels.get(e.status, (e.status, "info")) %}
 <div class="card" id="e-{{ e.id }}">
   <div class="spread">
-    <div><strong>{{ e.customer_name or "Customer" }}</strong>
+    <div><strong>{{ e.customer_name or e.customer_email or "Customer" }}</strong>
+      {% if e.channel == "email" %}<span class="muted">&lt;{{ e.customer_email }}&gt;</span>{% endif %}
       <span class="muted">· {{ e.created_at.strftime("%d %b %H:%M") }}</span></div>
     <div>
       {% if e.grounded is not none %}
@@ -16,6 +18,7 @@
       <span class="badge {{ tone }}">{{ label }}</span>
     </div>
   </div>
+  {% if e.subject %}<div style="margin-top:6px"><span class="badge info">email</span> <strong>{{ e.subject }}</strong></div>{% endif %}
   <div class="quote">{{ e.message }}</div>
 
   {% for w in e.warnings %}<div class="muted">⚠ {{ w }}</div>{% endfor %}
@@ -25,13 +28,19 @@
       <label for="reply-{{ e.id }}">Draft reply (edit it if needed)</label>
       <textarea id="reply-{{ e.id }}" name="reply">{{ e.draft_reply or "" }}</textarea>
       <div class="row">
-        <button name="action" value="send">Approve and send</button>
+        <button name="action" value="send">{{ "Approve and send email" if e.channel == "email" else "Approve" }}</button>
         <button name="action" value="reject" class="secondary">Reject</button>
         <span class="muted">If you change the text, it's saved as an edit.</span>
       </div>
     </form>
+  {% elif e.status == "send_failed" %}
+    <label>Reply (not sent yet)</label>
+    <div class="quote">{{ e.final_reply }}</div>
+    <form method="post" action="/ui/{{ business.slug }}/enquiries/{{ e.id }}/retry-send" data-busy="Sending…">
+      <div class="row"><button>Retry sending</button></div>
+    </form>
   {% elif e.final_reply %}
-    <label>Reply sent</label>
+    <label>{{ "Reply emailed" if e.sent_external_id else "Reply" }}</label>
     <div class="quote">{{ e.final_reply }}</div>
     {% if e.status == "edited" %}
       <details><summary>Original AI draft</summary><div class="quote">{{ e.draft_reply }}</div></details>

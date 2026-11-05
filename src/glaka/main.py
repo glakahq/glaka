@@ -4,33 +4,20 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from langgraph.checkpoint.postgres import PostgresSaver
-from psycopg.rows import dict_row
-from psycopg_pool import ConnectionPool
 
 from glaka import api, ui
-from glaka.config import get_settings
-from glaka.db import SessionLocal
-from glaka.deps import get_embedder, get_llm
-from glaka.inbox import Inbox
 from glaka.llm import LlmError
-from glaka.workflow import build_workflow
+from glaka.runtime import open_inbox
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Startup/shutdown (like @PostConstruct/@PreDestroy on the application)."""
-    # The checkpointer uses plain psycopg, so drop SQLAlchemy's "+psycopg" driver tag.
-    conninfo = get_settings().database_url.replace("postgresql+psycopg://", "postgresql://")
-    with ConnectionPool(
-        conninfo, kwargs={"autocommit": True, "row_factory": dict_row}, open=True
-    ) as pool:
-        checkpointer = PostgresSaver(pool)
-        checkpointer.setup()  # creates LangGraph's own tables if missing
-        workflow = build_workflow(SessionLocal.begin, get_embedder, get_llm, checkpointer)
-        app.state.inbox = Inbox(SessionLocal.begin, workflow)
+    with open_inbox() as inbox:
+        app.state.inbox = inbox
         yield
 
 

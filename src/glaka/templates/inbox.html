@@ -9,6 +9,7 @@
 {% endblock %}
 {% block content %}
   {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+  {% if notice %}<div class="alert" style="background:var(--ok-bg);color:var(--ok)">{{ notice }}</div>{% endif %}
   <div class="spread">
     <h1>{{ business.name }}</h1>
     <span class="muted">Auto-send: {{ "on (grounded drafts skip review)" if business.auto_send else "off" }}</span>
@@ -26,9 +27,21 @@
     </section>
 
     <aside>
+      <h2>Email</h2>
+      <div class="card">
+        {% if gmail_ready %}
+          <div class="muted">Gmail connected. Glaka reads only mail labelled <code>{{ gmail_label }}</code>.</div>
+          <form method="post" action="/ui/{{ business.slug }}/email/poll" data-busy="Checking and drafting…">
+            <div class="row"><button>Check email now</button></div>
+          </form>
+        {% else %}
+          <div class="muted">Gmail isn't connected yet. Follow <code>docs/gmail-setup.md</code>, then reload.</div>
+        {% endif %}
+      </div>
+
       <h2>Simulate a customer enquiry</h2>
       <form class="card" method="post" action="/ui/{{ business.slug }}/enquiries" data-busy="Drafting…">
-        <span class="muted">Until email arrives in step 4, this is how messages come in.</span>
+        <span class="muted">For quick tests without sending an email.</span>
         <label for="customer_name">Customer name</label>
         <input id="customer_name" name="customer_name" placeholder="Sam" maxlength="200">
         <label for="message">Message</label>

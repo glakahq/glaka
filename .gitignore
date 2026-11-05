@@ -228,3 +228,6 @@ data/private/
 # Private notes (business plan, personal context) - never commit
 docs/private/
 CLAUDE.local.md
+
+# OAuth client and tokens (Gmail) - never commit
+.secrets/

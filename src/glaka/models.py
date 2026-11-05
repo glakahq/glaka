@@ -87,6 +87,7 @@ class EnquiryStatus:
     AUTO_SENT = "auto_sent"  # grounded and the business opted in to auto-send
     REJECTED = "rejected"  # owner decided not to reply with it
     FAILED = "failed"  # drafting failed (e.g. AI provider down)
+    SEND_FAILED = "send_failed"  # decided, but the email could not be sent
 
 
 class Enquiry(Base):
@@ -94,13 +95,26 @@ class Enquiry(Base):
     the LangGraph checkpointer stores the paused workflow (thread_id = id)."""
 
     __tablename__ = "enquiries"
+    # The same email must never become two enquiries (polling can overlap).
+    __table_args__ = (
+        UniqueConstraint("business_id", "external_id", name="uq_enquiries_business_external"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     business_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("businesses.id", ondelete="CASCADE"), index=True
     )
+    channel: Mapped[str] = mapped_column(String(16), server_default="web")  # "web" | "email"
     customer_name: Mapped[str | None] = mapped_column(String(200))
+    customer_email: Mapped[str | None] = mapped_column(String(320))
+    subject: Mapped[str | None] = mapped_column(String(500))
     message: Mapped[str] = mapped_column(Text)
+    # Email threading: Gmail ids plus RFC 5322 headers so replies land in the same thread.
+    external_id: Mapped[str | None] = mapped_column(String(200))
+    external_thread_id: Mapped[str | None] = mapped_column(String(200))
+    message_id_header: Mapped[str | None] = mapped_column(String(500))
+    references_header: Mapped[str | None] = mapped_column(Text)
+    sent_external_id: Mapped[str | None] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(32), default=EnquiryStatus.DRAFTING, index=True)
     draft_reply: Mapped[str | None] = mapped_column(Text)
     grounded: Mapped[bool | None] = mapped_column(Boolean)

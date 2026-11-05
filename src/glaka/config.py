@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
@@ -24,6 +25,12 @@ class Settings(BaseSettings):
     # Free (":free") models need this, because their hosts may train on prompts.
     # Only enable it with demo data, never with real customer messages.
     openrouter_allow_data_collection: bool = False
+
+    # Gmail (step 4). Files live in .secrets/ (gitignored).
+    gmail_client_file: Path = Path(".secrets/gmail-oauth-client.json")
+    gmail_token_file: Path = Path(".secrets/gmail-token.json")
+    # Glaka only ever reads mail carrying this Gmail label (set by a Gmail filter).
+    gmail_label: str = "glaka"
 
 
 @lru_cache

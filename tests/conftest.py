@@ -12,7 +12,7 @@ from glaka.inbox import Inbox
 from glaka.rag import ingest_document
 from glaka.seed import seed_business
 from glaka.workflow import build_workflow
-from tests.fakes import FakeChat, FakeEmbedder
+from tests.fakes import FakeChat, FakeEmbedder, FakeMail
 
 PRICES = "# Prices\n\nshower install costs £450"
 
@@ -58,7 +58,12 @@ def shop(session):
 
 
 @pytest.fixture
-def inbox(session_scope, llm):
-    """The real workflow, with fakes for AI and an in-memory checkpointer."""
-    workflow = build_workflow(session_scope, FakeEmbedder, lambda: llm, InMemorySaver())
-    return Inbox(session_scope, workflow)
+def mail():
+    return FakeMail()
+
+
+@pytest.fixture
+def inbox(session_scope, llm, mail):
+    """The real workflow, with fakes for AI and mail, and an in-memory checkpointer."""
+    workflow = build_workflow(session_scope, FakeEmbedder, lambda: llm, lambda: mail, InMemorySaver())
+    return Inbox(session_scope, workflow, lambda: mail)

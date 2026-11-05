@@ -2,10 +2,12 @@
 
   uv run python -m glaka.cli ingest --business demo-bathrooms examples/demo-bathrooms/*.md
   uv run python -m glaka.cli search --business demo-bathrooms "How much is a shower install?"
+  uv run python -m glaka.cli poll-email --business demo-bathrooms [--watch 60]
 """
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 from sqlalchemy import select
@@ -42,7 +44,14 @@ def main() -> None:
     search_cmd.add_argument("query")
     search_cmd.add_argument("--limit", type=int, default=3)
 
+    poll_cmd = sub.add_parser("poll-email", help="turn new labelled emails into enquiries")
+    poll_cmd.add_argument("--business", required=True, help="business slug")
+    poll_cmd.add_argument("--watch", type=int, metavar="SECONDS", help="keep polling every N seconds")
+
     args = parser.parse_args()
+    if args.command == "poll-email":
+        _poll_email(args.business, args.watch)
+        return
     embedder = OllamaEmbedder()
 
     with SessionLocal.begin() as session:
@@ -55,6 +64,24 @@ def main() -> None:
         else:
             for hit in search(session, embedder, business.id, args.query, args.limit):
                 print(f"\n[{hit.source}] distance={hit.distance:.3f}\n{hit.content}")
+
+
+def _poll_email(slug: str, watch: int | None) -> None:
+    from glaka.mail import MailError
+    from glaka.runtime import open_inbox
+
+    with SessionLocal() as session:
+        business_id = _business(session, slug).id
+    with open_inbox() as inbox:
+        while True:
+            try:
+                r = inbox.poll_email(business_id)
+                print(f"{time.strftime('%H:%M:%S')} new={r.new} already_seen={r.already_seen} failed={r.failed}")
+            except MailError as exc:
+                print(f"{time.strftime('%H:%M:%S')} email check failed: {exc}", file=sys.stderr)
+            if not watch:
+                return
+            time.sleep(watch)
 
 
 if __name__ == "__main__":

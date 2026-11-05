@@ -8,6 +8,7 @@
 stops. Hours later, Command(resume=decision) wakes it up at the same spot.
 """
 
+import logging
 import uuid
 from collections.abc import Callable
 from contextlib import AbstractContextManager
@@ -21,9 +22,13 @@ from langgraph.types import interrupt
 from sqlalchemy.orm import Session
 
 from glaka.answer import answer_question
+from glaka.delivery import deliver
 from glaka.embeddings import Embedder
 from glaka.llm import ChatModel
+from glaka.mail import MailClient, MailError
 from glaka.models import Business, Enquiry, EnquiryStatus
+
+logger = logging.getLogger(__name__)
 
 SessionScope = Callable[[], AbstractContextManager[Session]]
 
@@ -41,6 +46,7 @@ def build_workflow(
     session_scope: SessionScope,
     make_embedder: Callable[[], Embedder],
     make_llm: Callable[[], ChatModel],
+    make_mail: Callable[[], MailClient],
     checkpointer: BaseCheckpointSaver,
 ) -> CompiledStateGraph:
     def _load(session: Session, state: EnquiryState) -> Enquiry:
@@ -53,8 +59,9 @@ def build_workflow(
             enquiry = _load(session, state)
             business = session.get(Business, enquiry.business_id)
             assert business is not None
+            question = f"{enquiry.subject}\n\n{enquiry.message}" if enquiry.subject else enquiry.message
             answer = answer_question(
-                session, make_embedder(), make_llm(), business.id, business.name, enquiry.message
+                session, make_embedder(), make_llm(), business.id, business.name, question
             )
             auto_send = business.auto_send and answer.grounded
             enquiry.draft_reply = answer.answer
@@ -91,7 +98,11 @@ def build_workflow(
                 enquiry.status = EnquiryStatus.APPROVED
                 enquiry.final_reply = enquiry.draft_reply
             enquiry.reviewed_at = datetime.now(UTC)
-        # Actually delivering the reply (email) arrives in step 4.
+            try:
+                deliver(enquiry, make_mail())
+            except MailError as exc:
+                logger.error("Sending reply for enquiry %s failed: %s", enquiry.id, exc)
+                enquiry.status = EnquiryStatus.SEND_FAILED
         return {}
 
     def reject(state: EnquiryState) -> dict[str, Any]:
