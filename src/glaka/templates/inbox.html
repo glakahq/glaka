@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ business.name }} · Glaka{% endblock %}
+{% block header_extra %}
+  <select aria-label="Business" onchange="location.href='/ui/' + this.value" style="width:auto">
+    {% for b in businesses %}
+      <option value="{{ b.slug }}" {% if b.id == business.id %}selected{% endif %}>{{ b.name }}</option>
+    {% endfor %}
+  </select>
+{% endblock %}
+{% block content %}
+  {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+  <div class="spread">
+    <h1>{{ business.name }}</h1>
+    <span class="muted">Auto-send: {{ "on (grounded drafts skip review)" if business.auto_send else "off" }}</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:24px" class="layout">
+    <section>
+      <h2>Needs review ({{ pending|length }})</h2>
+      {% for e in pending %}{% include "_enquiry.html" %}
+      {% else %}<div class="card muted">Nothing waiting. New enquiries will appear here.</div>{% endfor %}
+
+      <h2>History</h2>
+      {% for e in history %}{% include "_enquiry.html" %}
+      {% else %}<div class="card muted">No handled enquiries yet.</div>{% endfor %}
+    </section>
+
+    <aside>
+      <h2>Simulate a customer enquiry</h2>
+      <form class="card" method="post" action="/ui/{{ business.slug }}/enquiries" data-busy="Drafting…">
+        <span class="muted">Until email arrives in step 4, this is how messages come in.</span>
+        <label for="customer_name">Customer name</label>
+        <input id="customer_name" name="customer_name" placeholder="Sam" maxlength="200">
+        <label for="message">Message</label>
+        <textarea id="message" name="message" required maxlength="5000"
+          placeholder="Hi, how much would a walk-in shower cost?"></textarea>
+        <div class="row"><button>Send to Glaka</button></div>
+      </form>
+
+      <h2>Knowledge base</h2>
+      <div class="card">
+        {% for doc, chunks in documents %}
+          <div class="spread"><span>{{ doc.title }}</span><span class="muted">{{ doc.source }} · {{ chunks }} chunks</span></div>
+        {% else %}
+          <span class="muted">No documents yet. Add some with
+            <code>uv run python -m glaka.cli ingest --business {{ business.slug }} FILES…</code></span>
+        {% endfor %}
+      </div>
+    </aside>
+  </div>
+  <style>@media (min-width: 900px) { .layout { grid-template-columns: minmax(0,1fr) 340px !important; } }</style>
+{% endblock %}

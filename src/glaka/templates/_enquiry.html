@@ -1,0 +1,51 @@
+{# One enquiry card. `e` is an Enquiry. #}
+{% set labels = {
+  "pending_review": ("Needs review", "warn"), "approved": ("Approved", "ok"),
+  "edited": ("Edited and sent", "ok"), "auto_sent": ("Auto-sent", "info"),
+  "rejected": ("Rejected", "bad"), "failed": ("Drafting failed", "bad"), "drafting": ("Drafting", "info") } %}
+{% set label, tone = labels.get(e.status, (e.status, "info")) %}
+<div class="card" id="e-{{ e.id }}">
+  <div class="spread">
+    <div><strong>{{ e.customer_name or "Customer" }}</strong>
+      <span class="muted">· {{ e.created_at.strftime("%d %b %H:%M") }}</span></div>
+    <div>
+      {% if e.grounded is not none %}
+        {% if e.grounded %}<span class="badge ok">grounded</span>
+        {% else %}<span class="badge warn">check carefully</span>{% endif %}
+      {% endif %}
+      <span class="badge {{ tone }}">{{ label }}</span>
+    </div>
+  </div>
+  <div class="quote">{{ e.message }}</div>
+
+  {% for w in e.warnings %}<div class="muted">⚠ {{ w }}</div>{% endfor %}
+
+  {% if e.status == "pending_review" %}
+    <form method="post" action="/ui/{{ business.slug }}/enquiries/{{ e.id }}/review" data-busy="Saving…">
+      <label for="reply-{{ e.id }}">Draft reply (edit it if needed)</label>
+      <textarea id="reply-{{ e.id }}" name="reply">{{ e.draft_reply or "" }}</textarea>
+      <div class="row">
+        <button name="action" value="send">Approve and send</button>
+        <button name="action" value="reject" class="secondary">Reject</button>
+        <span class="muted">If you change the text, it's saved as an edit.</span>
+      </div>
+    </form>
+  {% elif e.final_reply %}
+    <label>Reply sent</label>
+    <div class="quote">{{ e.final_reply }}</div>
+    {% if e.status == "edited" %}
+      <details><summary>Original AI draft</summary><div class="quote">{{ e.draft_reply }}</div></details>
+    {% endif %}
+  {% elif e.draft_reply %}
+    <details><summary>AI draft</summary><div class="quote">{{ e.draft_reply }}</div></details>
+  {% endif %}
+
+  {% if e.citations %}
+    <details><summary>Sources used ({{ e.citations|length }})</summary>
+      {% for c in e.citations %}
+        <div class="muted" style="margin-top:8px">[{{ c.number }}] {{ c.source }}</div>
+        <div class="quote">{{ c.excerpt }}</div>
+      {% endfor %}
+    </details>
+  {% endif %}
+</div>

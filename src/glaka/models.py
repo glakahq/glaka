@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # nomic-embed-text produces 768-dimensional vectors. Changing the embedding
@@ -22,6 +23,8 @@ class Business(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     slug: Mapped[str] = mapped_column(String(64), unique=True)
     name: Mapped[str] = mapped_column(String(200))
+    # Opt-in: send grounded drafts without waiting for the owner. Off by default.
+    auto_send: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -74,3 +77,37 @@ class Chunk(Base):
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM))
 
     document: Mapped[Document] = relationship(back_populates="chunks")
+
+
+class EnquiryStatus:
+    DRAFTING = "drafting"  # the workflow is writing a draft
+    PENDING_REVIEW = "pending_review"  # paused, waiting for the owner
+    APPROVED = "approved"  # owner sent the draft as-is
+    EDITED = "edited"  # owner changed the draft, then sent it
+    AUTO_SENT = "auto_sent"  # grounded and the business opted in to auto-send
+    REJECTED = "rejected"  # owner decided not to reply with it
+    FAILED = "failed"  # drafting failed (e.g. AI provider down)
+
+
+class Enquiry(Base):
+    """A customer message and what happened to it. The UI reads this table;
+    the LangGraph checkpointer stores the paused workflow (thread_id = id)."""
+
+    __tablename__ = "enquiries"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), index=True
+    )
+    customer_name: Mapped[str | None] = mapped_column(String(200))
+    message: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default=EnquiryStatus.DRAFTING, index=True)
+    draft_reply: Mapped[str | None] = mapped_column(Text)
+    grounded: Mapped[bool | None] = mapped_column(Boolean)
+    citations: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    warnings: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    final_reply: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

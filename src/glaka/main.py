@@ -1,21 +1,42 @@
 import logging
-from typing import Annotated
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, Path, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from langgraph.checkpoint.postgres import PostgresSaver
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 
-from glaka.answer import Answer, answer_question
-from glaka.deps import get_embedder, get_llm, get_session
-from glaka.embeddings import Embedder
-from glaka.llm import ChatModel, LlmError
-from glaka.models import Business
+from glaka import api, ui
+from glaka.config import get_settings
+from glaka.db import SessionLocal
+from glaka.deps import get_embedder, get_llm
+from glaka.inbox import Inbox
+from glaka.llm import LlmError
+from glaka.workflow import build_workflow
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Glaka")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Startup/shutdown (like @PostConstruct/@PreDestroy on the application)."""
+    # The checkpointer uses plain psycopg, so drop SQLAlchemy's "+psycopg" driver tag.
+    conninfo = get_settings().database_url.replace("postgresql+psycopg://", "postgresql://")
+    with ConnectionPool(
+        conninfo, kwargs={"autocommit": True, "row_factory": dict_row}, open=True
+    ) as pool:
+        checkpointer = PostgresSaver(pool)
+        checkpointer.setup()  # creates LangGraph's own tables if missing
+        workflow = build_workflow(SessionLocal.begin, get_embedder, get_llm, checkpointer)
+        app.state.inbox = Inbox(SessionLocal.begin, workflow)
+        yield
+
+
+app = FastAPI(title="Glaka", lifespan=lifespan)
+app.include_router(api.router)
+app.include_router(ui.router)
 
 
 @app.exception_handler(LlmError)
@@ -23,35 +44,3 @@ def llm_unavailable(request: Request, exc: LlmError) -> JSONResponse:
     """Provider failures become a 503; the details go to the log, not to the caller."""
     logger.error("LLM provider error: %s", exc)
     return JSONResponse(status_code=503, content={"detail": "AI provider unavailable, try again later"})
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    """Liveness check: returns 200 if the process is up."""
-    return {"status": "ok"}
-
-
-class AskRequest(BaseModel):
-    question: str = Field(
-        min_length=1,
-        max_length=2000,
-        description="The customer's message",
-        examples=["How much is a walk-in shower?"],
-    )
-
-
-@app.post("/businesses/{slug}/ask")
-def ask(
-    slug: Annotated[
-        str, Path(description="The business's short id", examples=["demo-bathrooms"])
-    ],
-    request: AskRequest,
-    session: Annotated[Session, Depends(get_session)],
-    embedder: Annotated[Embedder, Depends(get_embedder)],
-    llm: Annotated[ChatModel, Depends(get_llm)],
-) -> Answer:
-    """Draft a grounded reply to a customer question, with citations."""
-    business = session.scalar(select(Business).where(Business.slug == slug))
-    if business is None:
-        raise HTTPException(status_code=404, detail="Business not found")
-    return answer_question(session, embedder, llm, business.id, business.name, request.question)

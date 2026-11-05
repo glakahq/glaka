@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Businesses · Glaka{% endblock %}
+{% block content %}
+  <h1>Businesses</h1>
+  <p class="muted">Pick a business to see its inbox.</p>
+  {% for business, pending in rows %}
+    <a href="/ui/{{ business.slug }}" style="text-decoration:none;color:inherit">
+      <div class="card spread">
+        <div><strong>{{ business.name }}</strong> <span class="muted">{{ business.slug }}</span></div>
+        {% if pending %}<span class="badge warn">{{ pending }} to review</span>
+        {% else %}<span class="badge ok">all clear</span>{% endif %}
+      </div>
+    </a>
+  {% else %}
+    <div class="card">No businesses yet. Create one with <code>uv run python -m glaka.seed --slug … --name …</code></div>
+  {% endfor %}
+{% endblock %}

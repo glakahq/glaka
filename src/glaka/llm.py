@@ -3,7 +3,7 @@
 from typing import Protocol, TypeVar
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from glaka.config import get_settings
 
@@ -56,7 +56,7 @@ class OpenRouterChat:
                 },
                 # No "temperature": newer models (e.g. Claude Haiku 5.5) don't accept it, and
                 # require_parameters below would then find no host at all.
-                "max_tokens": 1000,  # caps cost and runaway replies
+                "max_tokens": 2500,  # caps cost; reasoning models need room to think first
                 "provider": {
                     "require_parameters": True,  # only route to hosts that support the schema
                     # "deny" skips hosts that store or train on prompts (see config.py).
@@ -68,7 +68,15 @@ class OpenRouterChat:
         if response.is_error:
             # OpenRouter explains failures in the body (bad model id, no matching host...).
             raise LlmError(f"OpenRouter {response.status_code}: {response.text[:500]}")
-        return schema.model_validate_json(response.json()["choices"][0]["message"]["content"])
+        choice = response.json()["choices"][0]
+        content = choice["message"].get("content")
+        if not content:
+            # e.g. a reasoning model spent the whole token budget thinking.
+            raise LlmError(f"empty reply from {self.model} (finish_reason={choice.get('finish_reason')})")
+        try:
+            return schema.model_validate_json(content)
+        except ValidationError as exc:
+            raise LlmError(f"reply from {self.model} did not match {schema.__name__}: {exc}") from exc
 
 
 class OllamaChat:
