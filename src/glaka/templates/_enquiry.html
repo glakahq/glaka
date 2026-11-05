@@ -25,6 +25,7 @@
 
   {% if e.status == "pending_review" %}
     <form method="post" action="/ui/{{ business.slug }}/enquiries/{{ e.id }}/review" data-busy="Saving…">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
       <label for="reply-{{ e.id }}">Draft reply (edit it if needed)</label>
       <textarea id="reply-{{ e.id }}" name="reply">{{ e.draft_reply or "" }}</textarea>
       <div class="row">
@@ -37,6 +38,7 @@
     <label>Reply (not sent yet)</label>
     <div class="quote">{{ e.final_reply }}</div>
     <form method="post" action="/ui/{{ business.slug }}/enquiries/{{ e.id }}/retry-send" data-busy="Sending…">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
       <div class="row"><button>Retry sending</button></div>
     </form>
   {% elif e.final_reply %}
@@ -63,7 +65,7 @@
     <details><summary>Activity ({{ events|length }})</summary>
       {% for ev in events %}
         <div class="muted" style="margin-top:4px">
-          {{ ev.created_at.strftime("%d %b %H:%M:%S") }} · <strong>{{ ev.event }}</strong> · {{ ev.actor }}
+          {{ ev.created_at.strftime("%d %b %H:%M:%S") }} · <strong>{{ ev.event }}</strong> · {{ names.get(ev.actor, ev.actor) }}
           {% if ev.details %}<span>· {{ ev.details | tojson }}</span>{% endif %}
         </div>
       {% endfor %}

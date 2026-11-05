@@ -14,6 +14,15 @@ Tick items off (or delete them) as they're done.
 - [ ] **Concurrent reviews.** Two people approving the same draft at the same moment could
   both resume the workflow. Lock the enquiry row (`SELECT … FOR UPDATE`) during review.
 
+## Accounts and access
+- [ ] **Connect Gmail from the dashboard** (web OAuth flow) instead of the `connect-gmail` CLI.
+- [ ] **Manage members in the dashboard** (invite, remove, change role) instead of the CLI.
+- [ ] **Roles aren't enforced yet**: `staff` can do everything `owner` can (e.g. change settings).
+- [ ] **Password reset and two-factor sign-in.**
+- [ ] **Login rate limiting is in memory**, per process: move it to Postgres/Redis when
+  running more than one app process.
+- [ ] **Revoke/list API tokens** from the dashboard.
+
 ## Email
 - [ ] **Follow-ups in a thread** become new, separate enquiries without the earlier
   conversation, and quoted text (`> …`) isn't stripped from the body.

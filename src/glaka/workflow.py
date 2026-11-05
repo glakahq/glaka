@@ -47,7 +47,7 @@ def build_workflow(
     session_scope: SessionScope,
     make_embedder: Callable[[], Embedder],
     make_llm: Callable[[], ChatModel],
-    make_mail: Callable[[], MailClient],
+    make_mail: Callable[[uuid.UUID], MailClient],
     checkpointer: BaseCheckpointSaver,
 ) -> CompiledStateGraph:
     def _load(session: Session, state: EnquiryState) -> Enquiry:
@@ -62,7 +62,8 @@ def build_workflow(
             assert business is not None
             question = f"{enquiry.subject}\n\n{enquiry.message}" if enquiry.subject else enquiry.message
             answer = answer_question(
-                session, make_embedder(), make_llm(), business.id, business.name, question
+                session, make_embedder(), make_llm(), business.id, business.name, question,
+                business.reply_instructions,
             )
             auto_send = business.auto_send and answer.grounded
             record(
@@ -110,7 +111,7 @@ def build_workflow(
             enquiry.reviewed_at = datetime.now(UTC)
             record(session, enquiry.business_id, event, enquiry_id=enquiry.id, actor=actor)
             try:
-                deliver(enquiry, make_mail())
+                deliver(enquiry, make_mail(enquiry.business_id))
                 if enquiry.sent_external_id:
                     record(session, enquiry.business_id, "reply.sent", enquiry_id=enquiry.id, channel=enquiry.channel)
             except MailError as exc:

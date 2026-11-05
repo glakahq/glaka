@@ -7,6 +7,7 @@ MCP to Gmail, to another provider, or to a fake in tests.
 import asyncio
 import os
 import sys
+from pathlib import Path
 from typing import Any, Protocol
 
 from mcp import Client, StdioServerParameters
@@ -27,10 +28,12 @@ class MailClient(Protocol):
     ) -> SentEmail: ...
 
 
-def gmail_server_process() -> StdioServerParameters:
-    """Start our Gmail MCP server as a child process speaking MCP over stdin/stdout."""
+def gmail_server_process(token_file: Path, label: str) -> StdioServerParameters:
+    """Start our Gmail MCP server for one business, speaking MCP over stdin/stdout."""
     return StdioServerParameters(
-        command=sys.executable, args=["-m", "glaka.gmail_mcp.server"], cwd=os.getcwd()
+        command=sys.executable,
+        args=["-m", "glaka.gmail_mcp.server", "--token-file", str(token_file.resolve()), "--label", label],
+        cwd=os.getcwd(),
     )
 
 

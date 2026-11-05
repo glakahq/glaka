@@ -13,6 +13,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from pydantic import BaseModel, model_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from glaka.audit import record
 from glaka.delivery import deliver
@@ -57,7 +58,7 @@ class Inbox:
         self,
         session_scope: SessionScope,
         workflow: CompiledStateGraph,
-        make_mail: Callable[[], MailClient],
+        make_mail: Callable[[uuid.UUID], MailClient],
     ) -> None:
         self.session_scope = session_scope
         self.workflow = workflow
@@ -132,7 +133,7 @@ class Inbox:
     def poll_email(self, business_id: uuid.UUID) -> PollResult:
         """Fetch labelled emails and turn each new one into an enquiry."""
         result = PollResult()
-        for email in self.make_mail().fetch_new():
+        for email in self.make_mail(business_id).fetch_new():
             with self.session_scope() as session:
                 seen = session.scalar(
                     select(Enquiry.id).where(
@@ -157,6 +158,8 @@ class Inbox:
             try:
                 self.submit(business_id, email.body or "(empty message)", email=email)
                 result.new += 1
+            except IntegrityError:
+                result.already_seen += 1  # another poll (button vs background) got there first
             except LlmError as exc:
                 logger.error("Drafting failed for email %s: %s", email.id, exc)
                 result.failed += 1
@@ -170,7 +173,7 @@ class Inbox:
                 raise EnquiryNotFound(enquiry_id)
             if enquiry.status != EnquiryStatus.SEND_FAILED:
                 raise NotAwaitingReview(enquiry.status)
-            deliver(enquiry, self.make_mail())
+            deliver(enquiry, self.make_mail(business_id))
             record(session, business_id, "reply.sent", enquiry_id=enquiry_id, actor=actor,
                    channel=enquiry.channel, retry=True)
             edited = (enquiry.final_reply or "").strip() != (enquiry.draft_reply or "").strip()

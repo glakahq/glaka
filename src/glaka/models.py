@@ -25,6 +25,10 @@ class Business(Base):
     name: Mapped[str] = mapped_column(String(200))
     # Opt-in: send grounded drafts without waiting for the owner. Off by default.
     auto_send: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # The owner's own style notes for replies (tone, sign-off). Rules always come first.
+    reply_instructions: Mapped[str | None] = mapped_column(Text)
+    # Gmail label that routes mail to this business (set by a Gmail filter).
+    email_label: Mapped[str] = mapped_column(String(100), server_default="glaka")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -151,3 +155,47 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     prev_hash: Mapped[str] = mapped_column(String(64))
     hash: Mapped[str] = mapped_column(String(64), unique=True)
+
+
+class User(Base):
+    """Someone who can sign in to the dashboard."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(320), unique=True)  # stored lower-case
+    name: Mapped[str] = mapped_column(String(200))
+    password_hash: Mapped[str] = mapped_column(String(300))
+    # Platform admin (you, onboarding businesses by hand): sees and creates all businesses.
+    is_admin: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Membership(Base):
+    """Which users can see which businesses."""
+
+    __tablename__ = "memberships"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="CASCADE"), primary_key=True
+    )
+    role: Mapped[str] = mapped_column(String(32), server_default="owner")  # "owner" | "staff"
+
+
+class ApiToken(Base):
+    """Bearer token for scripts and evals. Only a SHA-256 hash is stored."""
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

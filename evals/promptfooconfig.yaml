@@ -4,8 +4,10 @@
 # Unit tests (pytest) check the code with a fake AI; these check what the AI actually does.
 #
 #   1. start Glaka:  uv run uvicorn glaka.main:app --port 8001
-#   2. run:          cd evals && npm run eval          (GLAKA_URL=... to use another port)
-#   3. inspect:      npm run view
+#   2. API token:    uv run python -m glaka.cli create-token --email <user with access> --name evals
+#                    and put it in evals/.env as GLAKA_TOKEN=glk_... (gitignored)
+#   3. run:          cd evals && npm run eval          (GLAKA_URL=... to use another port)
+#   4. inspect:      npm run view
 #
 # Uses the fictional demo business (examples/demo-bathrooms). Each case is one /ask
 # call; questions with no relevant sources don't reach the AI at all.
@@ -23,6 +25,7 @@ providers:
       method: POST
       headers:
         Content-Type: application/json
+        Authorization: "Bearer {{ env.GLAKA_TOKEN }}"
       body:
         question: "{{prompt}}"
       transformResponse: json   # output = {answer, grounded, citations, warnings}

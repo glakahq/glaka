@@ -46,7 +46,9 @@ def ask(
     llm: Annotated[ChatModel, Depends(get_llm)],
 ) -> Answer:
     """Draft a grounded reply (no review, nothing stored). Handy for trying questions."""
-    return answer_question(session, embedder, llm, business.id, business.name, request.question)
+    return answer_question(
+        session, embedder, llm, business.id, business.name, request.question, business.reply_instructions
+    )
 
 
 class EnquiryIn(BaseModel):

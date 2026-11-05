@@ -53,18 +53,56 @@
     details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-top: 8px; }
     .alert { background: var(--bad-bg); color: var(--bad); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 16px; }
     .dev-note { font-size: 12px; color: var(--warn); background: var(--warn-bg); padding: 2px 8px; border-radius: 6px; }
+    .notice { background: var(--ok-bg); color: var(--ok); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 16px; }
+    nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 8px 0 20px; overflow-x: auto; }
+    nav.tabs a { padding: 8px 14px; text-decoration: none; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
+    nav.tabs a.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 13px; }
+    .inline { display: inline; }
+    button.link { background: none; border: none; color: var(--muted); padding: 0; font-weight: 400; }
+    .check { display: flex; gap: 8px; align-items: center; font-weight: 400; }
+    .check input { width: auto; }
+    code { font-size: 13px; }
   </style>
 </head>
 <body>
   <header>
     <a class="brand" href="/ui">Glaka</a>
     <span class="tag">AI front desk</span>
-    {% block header_extra %}{% endblock %}
+    {% if user and business and businesses|length > 1 %}
+      <select aria-label="Business" onchange="location.href='/ui/' + this.value" style="width:auto">
+        {% for b in businesses %}
+          <option value="{{ b.slug }}" {% if b.id == business.id %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    {% endif %}
     <span style="flex:1"></span>
-    <span class="dev-note">Dev UI, no login</span>
-    <a href="/docs" class="muted">API docs</a>
+    {% if user %}
+      <span class="muted">{{ user.name }}{% if user.is_admin %} · admin{% endif %}</span>
+      <form method="post" action="/logout" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+        <button class="link">Sign out</button>
+      </form>
+    {% endif %}
   </header>
-  <main>{% block content %}{% endblock %}</main>
+  <main>
+    {% if error %}<div class="alert">{{ error }}</div>{% endif %}
+    {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+    {% if business and tab %}
+      <div class="spread"><h1>{{ business.name }}</h1>
+        <span class="muted">Auto-send {{ "on" if business.auto_send else "off" }} ·
+          Email {{ "connected" if gmail_ready else "not connected" }}</span></div>
+      <nav class="tabs">
+        <a href="/ui/{{ business.slug }}" class="{{ 'active' if tab == 'inbox' }}">Inbox</a>
+        <a href="/ui/{{ business.slug }}/knowledge" class="{{ 'active' if tab == 'knowledge' }}">Knowledge</a>
+        <a href="/ui/{{ business.slug }}/settings" class="{{ 'active' if tab == 'settings' }}">Settings</a>
+        <a href="/ui/{{ business.slug }}/activity" class="{{ 'active' if tab == 'activity' }}">Activity</a>
+      </nav>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
   <script>
     // Drafting takes a few seconds: show it, and stop double submits.
     document.querySelectorAll("form[data-busy]").forEach(f => f.addEventListener("submit", e => {

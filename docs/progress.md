@@ -70,6 +70,21 @@ Things deliberately left for later are in [backlog.md](backlog.md).
 - `python -m glaka.cli verify-audit --business <slug>` detects edited, deleted or
   reordered events. Each enquiry card in the UI shows its activity.
 
+## Step 6: multi-business dashboard
+- **Accounts**: `users` (Argon2id password hashes), `memberships` (user ↔ business, role),
+  admins see and create every business. Created from the CLI (`create-user`, `add-member`).
+- **Sessions**: signed cookie (SameSite=Lax), new session on sign-in, CSRF token on every
+  form, failed sign-ins rate-limited, no open redirects after sign-in.
+- **API**: same rules via `Authorization: Bearer glk_…` tokens (`create-token`; only the
+  SHA-256 is stored). A business you can't access is a 404, never a 403.
+- **Dashboard** (`/ui/<business>`): Inbox · Knowledge (upload .md/.txt or paste; replace;
+  remove) · Settings (name, reply style, auto-send, Gmail label, members) · Activity
+  (audit trail with a live chain check). Reviews are attributed to the signed-in user.
+- **Per-business email**: one Gmail token per business (`connect-gmail --business …`), its
+  own label, and a background poller (`EMAIL_POLL_SECONDS`, default 60).
+- **Per-business reply style** (`reply_instructions`) goes into the prompt after the safety
+  rules, so it can change tone but not the rules.
+
 ## Running it
 
 ```
@@ -77,9 +92,11 @@ docker compose up -d                      # Postgres
 uv run alembic upgrade head               # schema
 uv run python -m glaka.seed --slug demo-bathrooms --name "Demo Bathrooms"
 uv run python -m glaka.cli ingest --business demo-bathrooms examples/demo-bathrooms/*.md
-uv run uvicorn glaka.main:app --reload --port 8001   # UI at /ui, API docs at /docs
+uv run python -m glaka.cli create-user --email you@example.com --name "You" --admin
+uv run python -m glaka.cli add-member --email you@example.com --business demo-bathrooms
+uv run uvicorn glaka.main:app --reload --port 8001   # sign in at /login, API docs at /docs
 uv run pytest                             # unit + integration tests
-cd evals && npm install && npm run eval   # behaviour evals (needs the app running)
+cd evals && npm install && npm run eval   # behaviour evals (app running + GLAKA_TOKEN in evals/.env)
 ```
 
 Configuration is in `.env` (copy `.env.example`).

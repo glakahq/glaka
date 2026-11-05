@@ -65,5 +65,35 @@ def mail():
 @pytest.fixture
 def inbox(session_scope, llm, mail):
     """The real workflow, with fakes for AI and mail, and an in-memory checkpointer."""
-    workflow = build_workflow(session_scope, FakeEmbedder, lambda: llm, lambda: mail, InMemorySaver())
-    return Inbox(session_scope, workflow, lambda: mail)
+    workflow = build_workflow(session_scope, FakeEmbedder, lambda: llm, lambda _business_id: mail, InMemorySaver())
+    return Inbox(session_scope, workflow, lambda _business_id: mail)
+
+
+PASSWORD = "correct horse battery"
+
+
+@pytest.fixture
+def owner(session, shop):
+    """A signed-up user who is a member of `shop` (and nothing else)."""
+    from glaka.auth import add_member, create_user
+
+    user = create_user(session, "owner@example.com", "Olive Owner", PASSWORD)
+    add_member(session, user, shop)
+    return user
+
+
+def csrf_from(page_html: str) -> str:
+    import re
+
+    match = re.search(r'name="csrf_token" value="([^"]+)"', page_html)
+    assert match, "page has no CSRF token"
+    return match.group(1)
+
+
+def sign_in(client, email: str = "owner@example.com", password: str = PASSWORD) -> str:
+    """Sign in through the real login form. Returns the session's CSRF token."""
+    token = csrf_from(client.get("/login").text)
+    response = client.post("/login", data={"email": email, "password": password, "csrf_token": token},
+                           follow_redirects=False)
+    assert response.status_code == 303 and "error" not in response.headers["location"], response.headers
+    return csrf_from(client.get("/ui").text)

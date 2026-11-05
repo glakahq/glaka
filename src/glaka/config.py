@@ -30,11 +30,20 @@ class Settings(BaseSettings):
     # Only enable it with demo data, never with real customer messages.
     openrouter_allow_data_collection: bool = False
 
-    # Gmail (step 4). Files live in .secrets/ (gitignored).
+    # Gmail. Files live in .secrets/ (gitignored): one OAuth client for the app, and one
+    # token per business in gmail_token_dir/<business id>.json.
     gmail_client_file: Path = Path(".secrets/gmail-oauth-client.json")
-    gmail_token_file: Path = Path(".secrets/gmail-token.json")
-    # Glaka only ever reads mail carrying this Gmail label (set by a Gmail filter).
-    gmail_label: str = "glaka"
+    gmail_token_dir: Path = Path(".secrets/gmail")
+    # Check connected mailboxes every N seconds in the background (0 = off; use the button).
+    email_poll_seconds: int = 60
+
+    # Web sessions. Set SECRET_KEY in production; without it a random key is used and
+    # everyone is signed out when the app restarts.
+    secret_key: SecretStr | None = None
+    cookie_secure: bool = False  # True behind HTTPS
+
+    def gmail_token_file(self, business_id: object) -> Path:
+        return self.gmail_token_dir / f"{business_id}.json"
 
 
 @lru_cache

@@ -4,7 +4,7 @@
   "description": "Behaviour evals for the Glaka assistant. The app is Python; Promptfoo only drives the HTTP API.",
   "engines": { "node": ">=22" },
   "scripts": {
-    "eval": "PROMPTFOO_DISABLE_TELEMETRY=1 GLAKA_URL=${GLAKA_URL:-http://localhost:8001} promptfoo eval -c promptfooconfig.yaml",
+    "eval": "PROMPTFOO_DISABLE_TELEMETRY=1 GLAKA_URL=${GLAKA_URL:-http://localhost:8001} promptfoo eval -c promptfooconfig.yaml --env-file .env",
     "view": "PROMPTFOO_DISABLE_TELEMETRY=1 promptfoo view"
   },
   "devDependencies": {

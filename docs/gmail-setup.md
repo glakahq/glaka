@@ -47,20 +47,24 @@ Glaka says the token is invalid, repeat step 5.
 2. **Download JSON** and save it in the project as
    `.secrets/gmail-oauth-client.json` (`.secrets/` is gitignored).
 
-## 5. Sign in once
+## 5. Sign in once per business
 
 ```
-uv run python -m glaka.gmail_mcp.server authorize
+uv run python -m glaka.cli connect-gmail --business <slug>
 ```
 
-A browser opens. Choose your account. Google warns that the app isn't verified,
-which is expected for your own test app: **Continue**, then allow both
-permissions. The token is saved to `.secrets/gmail-token.json`.
+A browser opens. Choose the account that receives that business's enquiries. Google
+warns that the app isn't verified, which is expected for your own test app:
+**Continue**, then allow both permissions. The token is saved to
+`.secrets/gmail/<business id>.json` and used only for that business.
+
+The label Glaka reads is set per business on its **Settings** page (default `glaka`).
 
 ## 6. Use it
 
-- In the UI (`/ui/<business>`), click **Check email now**, or
-- from the terminal: `uv run python -m glaka.cli poll-email --business <slug> --watch 60`
+- The app checks connected mailboxes every minute (`EMAIL_POLL_SECONDS`), or
+- click **Check email now** in the inbox, or
+- from the terminal: `uv run python -m glaka.cli poll-email --business <slug>`
 
 Each new labelled email becomes an enquiry with a draft. Approving it sends the
 reply from your Gmail in the same thread.

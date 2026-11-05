@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Settings · {{ business.name }} · Glaka{% endblock %}
+{% block content %}
+  <form class="card" method="post" action="/ui/{{ business.slug }}/settings" style="max-width:720px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <label for="name">Business name</label>
+    <input id="name" name="name" value="{{ business.name }}" required maxlength="200">
+
+    <label for="reply_instructions">How replies should sound</label>
+    <textarea id="reply_instructions" name="reply_instructions" maxlength="2000"
+      placeholder="Friendly and short. Sign off as 'Mike at BlueTech'. Use the customer's first name.">{{ business.reply_instructions or "" }}</textarea>
+    <p class="muted">Tone and sign-off only. Facts and prices come from the Knowledge tab, and
+      Glaka's safety rules always come first.</p>
+
+    <label class="check"><input type="checkbox" name="auto_send" {% if business.auto_send %}checked{% endif %}>
+      Send grounded drafts without waiting for approval</label>
+    <p class="muted">Drafts with any warning still wait for you. Leave this off until you trust the answers.</p>
+
+    <label for="email_label">Gmail label</label>
+    <input id="email_label" name="email_label" value="{{ business.email_label }}" required maxlength="100">
+    <p class="muted">Glaka only reads mail with this label. Set it with a Gmail filter on the
+      business's enquiry address.</p>
+
+    <div class="row"><button>Save settings</button></div>
+  </form>
+
+  <h2>Email connection</h2>
+  <div class="card" style="max-width:720px">
+    {% if gmail_ready %}
+      <span class="badge ok">connected</span>
+      <span class="muted">Mail labelled <code>{{ business.email_label }}</code> is checked automatically.</span>
+    {% else %}
+      <span class="badge warn">not connected</span>
+      <p class="muted">Run this once on the server and sign in with the business's Gmail account
+        (setup guide: <code>docs/gmail-setup.md</code>):</p>
+      <code>uv run python -m glaka.cli connect-gmail --business {{ business.slug }}</code>
+    {% endif %}
+  </div>
+
+  <h2>People with access</h2>
+  <div class="card" style="max-width:720px">
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+      <tbody>
+      {% for member, role in members %}
+        <tr><td>{{ member.name }}</td><td class="muted">{{ member.email }}</td><td>{{ role }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted">Add people with <code>uv run python -m glaka.cli add-member --email … --business {{ business.slug }}</code></p>
+  </div>
+{% endblock %}

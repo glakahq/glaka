@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Activity · {{ business.name }} · Glaka{% endblock %}
+{% block content %}
+  <div class="card spread">
+    <div>
+      {% if chain.ok %}<span class="badge ok">audit trail intact</span>
+      {% else %}<span class="badge bad">audit trail broken</span>{% endif %}
+      <span class="muted">{{ chain.events }} events checked
+        {% if not chain.ok %}· first problem at event {{ chain.first_bad_id }}: {{ chain.reason }}{% endif %}</span>
+    </div>
+    <span class="muted">Each event is chained to the previous one, so edits or deletions show up here.</span>
+  </div>
+  <div class="card">
+    <table>
+      <thead><tr><th>When (UTC)</th><th>Event</th><th>By</th><th>Details</th></tr></thead>
+      <tbody>
+      {% for ev in events %}
+        <tr>
+          <td class="muted">{{ ev.created_at.strftime("%d %b %H:%M:%S") }}</td>
+          <td><strong>{{ ev.event }}</strong></td>
+          <td>{{ names.get(ev.actor, ev.actor) }}</td>
+          <td class="muted">{% if ev.details %}{{ ev.details | tojson }}{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="muted">Nothing recorded yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

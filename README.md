@@ -34,7 +34,7 @@ Python · FastAPI · LangGraph · Pydantic · Postgres + pgvector · MCP integra
 2. ✅ Approval loop: API + LangGraph human review
 3. ✅ Email in and out via MCP
 4. ✅ Guardrails + evaluation suite
-5. Multi-business support + dashboard
+5. ✅ Multi-business support + dashboard
 6. Embeddable website chat widget
 
 ## Try it locally

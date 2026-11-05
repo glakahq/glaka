@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Knowledge · {{ business.name }} · Glaka{% endblock %}
+{% block content %}
+  <p class="muted">Glaka answers only from these documents: prices, services, FAQ, policies.
+    Keep them current; replies are only as good as what's here.</p>
+
+  <div class="card">
+    {% if documents %}
+      <table>
+        <thead><tr><th>Title</th><th>Source</th><th>Chunks</th><th>Added</th><th></th></tr></thead>
+        <tbody>
+        {% for doc, chunks in documents %}
+          <tr>
+            <td>{{ doc.title }}</td>
+            <td class="muted">{{ doc.source }}</td>
+            <td>{{ chunks }}</td>
+            <td class="muted">{{ doc.created_at.strftime("%d %b %Y") }}</td>
+            <td>
+              <form method="post" action="/ui/{{ business.slug }}/knowledge/{{ doc.id }}/delete" class="inline"
+                    onsubmit="return confirm('Remove {{ doc.source }} from the knowledge base?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+                <button class="link" style="color:var(--bad)">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <span class="muted">Nothing yet. Add the business's price list and FAQ below.</span>
+    {% endif %}
+  </div>
+
+  <h2>Add documents</h2>
+  <form class="card" method="post" action="/ui/{{ business.slug }}/knowledge" enctype="multipart/form-data"
+        data-busy="Indexing…" style="max-width:720px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
+    <label for="files">Upload .md or .txt files (up to 1 MB each)</label>
+    <input id="files" name="files" type="file" accept=".md,.txt,text/markdown,text/plain" multiple>
+    <p class="muted">Uploading a file with the same name replaces the old version.</p>
+    <label for="title">…or paste text: title</label>
+    <input id="title" name="title" maxlength="200" placeholder="Opening hours">
+    <label for="text">Text</label>
+    <textarea id="text" name="text" placeholder="Monday to Friday 8am to 6pm. Saturday 9am to 1pm."></textarea>
+    <div class="row"><button>Add to knowledge base</button></div>
+  </form>
+{% endblock %}

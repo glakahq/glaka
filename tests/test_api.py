@@ -13,8 +13,13 @@ from tests.fakes import FakeChat, FakeEmbedder
 
 @pytest.fixture
 def client(session, inbox):
+    from glaka.auth import add_member, create_api_token, create_user
+
     embedder = FakeEmbedder()
     shop = seed_business(session, "api-shop", "API Shop")
+    user = create_user(session, "api@example.com", "API User", "long enough password")
+    add_member(session, user, shop)
+    token = create_api_token(session, user, "tests")
     ingest_document(session, embedder, shop.id, "prices.md", "Prices", "shower install costs £450")
     llm = FakeChat(LlmAnswer(can_answer=True, answer="£450.", cited_sources=[1]))
 
@@ -24,7 +29,7 @@ def client(session, inbox):
         get_llm: lambda: llm,
         get_inbox: lambda: inbox,
     }
-    yield TestClient(app)
+    yield TestClient(app, headers={"Authorization": f"Bearer {token}"})
     app.dependency_overrides = {}
 
 

@@ -1,9 +1,9 @@
 """Glaka's Gmail MCP server: two tools, minimal scopes, safety rules enforced here.
 
-Run as an MCP server over stdio (Glaka starts it for you):
-    uv run python -m glaka.gmail_mcp.server
-One-time Google sign-in (opens a browser, saves a token in .secrets/):
-    uv run python -m glaka.gmail_mcp.server authorize
+Run as an MCP server over stdio (Glaka starts it, one process per call, per business):
+    uv run python -m glaka.gmail_mcp.server --token-file .secrets/gmail/<id>.json --label glaka
+One-time Google sign-in for a business (opens a browser, saves its token):
+    uv run python -m glaka.cli connect-gmail --business <slug>
 
 Rules this server enforces, whatever the caller asks:
 - it only reads messages carrying the configured label (default "glaka");
@@ -11,8 +11,10 @@ Rules this server enforces, whatever the caller asks:
 - it skips Glaka's own replies, so it never answers itself.
 """
 
+import argparse
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -69,25 +71,28 @@ def create_server(make_api: Callable[[], GmailApi], label: str) -> MCPServer:
     return server
 
 
-def _google_api() -> GmailApi:
-    from google.auth.transport.requests import Request
-    from google.oauth2.credentials import Credentials
-    from googleapiclient.discovery import build
+def google_api(token_file: Path) -> Callable[[], GmailApi]:
+    def make() -> GmailApi:
+        from google.auth.transport.requests import Request
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
 
-    settings = get_settings()
-    if not settings.gmail_token_file.exists():
-        raise ToolError("Gmail is not authorised yet: run `python -m glaka.gmail_mcp.server authorize`")
-    creds = Credentials.from_authorized_user_file(str(settings.gmail_token_file), SCOPES)
-    if not creds.valid:
-        if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            settings.gmail_token_file.write_text(creds.to_json())
-        else:
-            raise ToolError("Gmail token is invalid: run `python -m glaka.gmail_mcp.server authorize` again")
-    return GoogleGmailApi(build("gmail", "v1", credentials=creds, cache_discovery=False))
+        if not token_file.exists():
+            raise ToolError("Gmail is not connected for this business (connect-gmail)")
+        creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
+        if not creds.valid:
+            if creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+                token_file.write_text(creds.to_json())
+            else:
+                raise ToolError("Gmail sign-in has expired: run connect-gmail again")
+        return GoogleGmailApi(build("gmail", "v1", credentials=creds, cache_discovery=False))
+
+    return make
 
 
-def authorize() -> None:
+def authorize(token_file: Path) -> None:
+    """Browser sign-in; saves a token that only this business's server process uses."""
     from google_auth_oauthlib.flow import InstalledAppFlow
 
     settings = get_settings()
@@ -95,14 +100,16 @@ def authorize() -> None:
         sys.exit(f"Missing {settings.gmail_client_file}. See docs/gmail-setup.md, step 4.")
     flow = InstalledAppFlow.from_client_secrets_file(str(settings.gmail_client_file), SCOPES)
     creds = flow.run_local_server(port=0)
-    settings.gmail_token_file.parent.mkdir(parents=True, exist_ok=True)
-    settings.gmail_token_file.write_text(creds.to_json())
-    settings.gmail_token_file.chmod(0o600)
-    print(f"Saved Gmail token to {settings.gmail_token_file}")
+    token_file.parent.mkdir(parents=True, exist_ok=True)
+    token_file.parent.chmod(0o700)
+    token_file.write_text(creds.to_json())
+    token_file.chmod(0o600)
+    print(f"Saved Gmail token to {token_file}")
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ["authorize"]:
-        authorize()
-    else:
-        create_server(_google_api, get_settings().gmail_label).run("stdio")
+    parser = argparse.ArgumentParser(description="Glaka Gmail MCP server (stdio)")
+    parser.add_argument("--token-file", type=Path, required=True)
+    parser.add_argument("--label", default="glaka")
+    args = parser.parse_args()
+    create_server(google_api(args.token_file), args.label).run("stdio")
